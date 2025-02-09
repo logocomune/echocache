@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+var _ Cacher[any] = &LRUExpirableCache[any]{}
+
 // LRUExpirableCache represents a least-recently-used cache with expirable entries.
 // It holds a generic type T and manages key-value pairs with expiration functionality.
 type LRUExpirableCache[T any] struct {
@@ -20,7 +22,7 @@ func NewLRUExplorableCache[T any](size int, ttl time.Duration) *LRUExpirableCach
 }
 
 // Get retrieves the value associated with the specified key from the cache, indicating whether it exists or not.
-func (l *LRUExpirableCache[T]) Get(_ context.Context, key string) (value interface{}, exists bool, err error) {
+func (l *LRUExpirableCache[T]) Get(_ context.Context, key string) (value T, exists bool, err error) {
 	value, exists = l.cache.Get(key)
 	return value, exists, nil
 }

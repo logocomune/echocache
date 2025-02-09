@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var _ Cacher[any] = &RedisCache[any]{}
+
 // RedisCache is a generic type that provides caching functionalities using Redis as the backend storage.
 // T specifies the type of the items to be cached, enabling type-safe operations.
 // db holds the Redis client instance to interact with the Redis server.

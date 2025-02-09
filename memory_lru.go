@@ -5,6 +5,8 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
+var _ Cacher[any] = &LRUCache[any]{}
+
 // LRUCache is a generic cache implementation based on a least-recently-used (LRU) eviction policy.
 type LRUCache[T any] struct {
 	cache *lru.Cache[string, T]
