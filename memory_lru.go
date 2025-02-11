@@ -28,14 +28,8 @@ func (l *LRUCache[T]) Get(_ context.Context, key string) (value T, exists bool, 
 	return value, exists, nil
 }
 
-// Set inserts a key-value pair into the LRUCache, updating an existing key if it already exists.
+// Set inserts a key-value pair into the LRUCache, updating an existing key if it already cacheValid.
 func (l *LRUCache[T]) Set(_ context.Context, key string, value T) error {
 	l.cache.Add(key, value)
 	return nil
-}
-
-// BuildKey constructs and returns the normalized key string for use within the cache.
-func (*LRUCache[T]) BuildKey(key string) string {
-	// Example implementation, customizable as needed
-	return key
 }

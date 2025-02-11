@@ -22,7 +22,7 @@ func TestLRUExpirableCache_Get(t *testing.T) {
 		wantErr  error
 	}{
 		{
-			name: "key exists",
+			name: "key cacheValid",
 			size: 10,
 			ttl:  10 * time.Second,
 			cacheOps: func(cache *LRUExpirableCache[string]) {
@@ -119,40 +119,6 @@ func TestLRUExpirableCache_Set(t *testing.T) {
 			}
 			if !tt.validate(cache) {
 				t.Errorf("validation failed")
-			}
-		})
-	}
-}
-
-func TestLRUExpirableCache_BuildKey(t *testing.T) {
-	tests := []struct {
-		name string
-		key  string
-		want string
-	}{
-		{
-			name: "build key",
-			key:  "myKey",
-			want: "myKey",
-		},
-		{
-			name: "build key empty",
-			key:  "",
-			want: "",
-		},
-		{
-			name: "build key special chars",
-			key:  "key-123_!@#",
-			want: "key-123_!@#",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cache := &LRUExpirableCache[string]{}
-			got := cache.BuildKey(tt.key)
-			if got != tt.want {
-				t.Errorf("BuildKey() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -11,7 +11,7 @@ var _ Cacher[any] = &RedisCache[any]{}
 
 // RedisCache is a generic type that provides caching functionalities using Redis as the backend storage.
 // T specifies the type of the items to be cached, enabling type-safe operations.
-// db holds the Redis client instance to interact with the Redis server.
+// store holds the Redis client instance to interact with the Redis server.
 // prefix defines a string to prepend to cache keys, useful for namespacing cache entries.
 // ttl specifies the time-to-live duration for cache entries to expire automatically.
 type RedisCache[T any] struct {
@@ -20,25 +20,39 @@ type RedisCache[T any] struct {
 	ttl    time.Duration
 }
 
-// Get retrieves the value associated with the given key from the Redis cache.
-// It returns the value, a boolean indicating if the key exists, and an error if one occurred.
-func (r *RedisCache[T]) Get(ctx context.Context, key string) (value T, exists bool, err error) {
-	result, err := r.db.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return value, false, nil
-	} else if err != nil {
-		return value, false, err
+func NewRedisCache[T any](db *redis.Client, prefix string, ttl time.Duration) *RedisCache[T] {
+	return &RedisCache[T]{
+		db:     db,
+		prefix: prefix,
+		ttl:    ttl,
 	}
+}
+
+// Get retrieves the value associated with the given key from the Redis cache.
+// It returns the value, a boolean indicating if the key cacheValid, and an error if one occurred.
+func (r *RedisCache[T]) Get(ctx context.Context, k string) (value T, exists bool, err error) {
+	var emptyValue T
+	key := r.buildKey(k)
+	result, err := r.db.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return emptyValue, false, nil
+		}
+
+		return emptyValue, false, err
+	}
+
 	// Assuming the value can be unmarshalled into T
 	err = json.Unmarshal([]byte(result), &value)
 	if err != nil {
-		return value, false, err
+		return emptyValue, false, err
 	}
 	return value, true, nil
 }
 
 // Set stores the given value in the Redis cache under the specified key, using the configured TTL duration.
-func (r *RedisCache[T]) Set(ctx context.Context, key string, value T) error {
+func (r *RedisCache[T]) Set(ctx context.Context, k string, value T) error {
+	key := r.buildKey(k)
 	// Assuming the value can be marshalled to JSON
 	data, err := json.Marshal(value)
 	if err != nil {
@@ -47,8 +61,8 @@ func (r *RedisCache[T]) Set(ctx context.Context, key string, value T) error {
 	return r.db.Set(ctx, key, string(data), r.ttl).Err()
 }
 
-// BuildKey constructs a unique key by combining the cache prefix with the provided key string.
-func (r *RedisCache[T]) BuildKey(key string) string {
+// buildKey constructs a unique key by combining the cache prefix with the provided key string.
+func (r *RedisCache[T]) buildKey(key string) string {
 	// Example implementation, customizable as needed
 	return r.prefix + ":" + key
 }

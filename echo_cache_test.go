@@ -50,10 +50,10 @@ func TestEchoCache_Memoize(t *testing.T) {
 	t.Run("value_found_in_cache", func(t *testing.T) {
 		mc := &mockCacher[string]{
 			cache: map[string]string{
-				"key:test": "cached value",
+				"test": "cached value",
 			},
 		}
-		cache := New(mc)
+		cache := New[string](mc)
 		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
 			return "refreshed value", nil
 		})
@@ -65,7 +65,7 @@ func TestEchoCache_Memoize(t *testing.T) {
 
 	t.Run("value_refreshed_and_cached", func(t *testing.T) {
 		mc := &mockCacher[string]{cache: make(map[string]string)}
-		cache := New(mc)
+		cache := New[string](mc)
 		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
 			return "refreshed value", nil
 		})
@@ -73,12 +73,12 @@ func TestEchoCache_Memoize(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, exists)
 		assert.Equal(t, "refreshed value", value)
-		assert.Equal(t, "refreshed value", mc.cache["key:test"])
+		assert.Equal(t, "refreshed value", mc.cache["test"])
 	})
 
 	t.Run("value_refresh_fails", func(t *testing.T) {
 		mc := &mockCacher[string]{cache: make(map[string]string)}
-		cache := New(mc)
+		cache := New[string](mc)
 		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
 			return "", errors.New("refresh error")
 		})
@@ -93,7 +93,7 @@ func TestEchoCache_Memoize(t *testing.T) {
 			cache:  make(map[string]string),
 			getErr: errors.New("cache get error"),
 		}
-		cache := New(mc)
+		cache := New[string](mc)
 		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
 			return "refreshed value", nil
 		})
@@ -101,7 +101,7 @@ func TestEchoCache_Memoize(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, exists)
 		assert.Equal(t, "refreshed value", value)
-		assert.Equal(t, "refreshed value", mc.cache["key:test"])
+		assert.Equal(t, "refreshed value", mc.cache["test"])
 	})
 
 	t.Run("cache_set_fails", func(t *testing.T) {
@@ -109,7 +109,7 @@ func TestEchoCache_Memoize(t *testing.T) {
 			cache:  make(map[string]string),
 			setErr: errors.New("cache set error"),
 		}
-		cache := New(mc)
+		cache := New[string](mc)
 		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
 			return "refreshed value", nil
 		})

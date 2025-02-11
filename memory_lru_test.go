@@ -19,7 +19,7 @@ func TestLRUCache_Get(t *testing.T) {
 		expectedFound bool
 	}{
 		{
-			name:          "key exists",
+			name:          "key cacheValid",
 			existingKey:   "key1",
 			existingValue: "value1",
 			queryKey:      "key1",
@@ -125,34 +125,6 @@ func TestLRUCache_Set(t *testing.T) {
 			value, found, _ := cache.Get(context.Background(), tt.queryKey)
 			assert.Equal(t, tt.expectedFound, found)
 			assert.Equal(t, tt.expectedValue, value)
-		})
-	}
-}
-
-func TestLRUCache_BuildKey(t *testing.T) {
-	cache := NewLRUCache[int](2)
-
-	tests := []struct {
-		name     string
-		inputKey string
-		expected string
-	}{
-		{
-			name:     "simple key",
-			inputKey: "key1",
-			expected: "key1",
-		},
-		{
-			name:     "empty key",
-			inputKey: "",
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			generatedKey := cache.BuildKey(tt.inputKey)
-			assert.Equal(t, tt.expected, generatedKey)
 		})
 	}
 }
