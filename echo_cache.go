@@ -3,74 +3,79 @@ package echocache
 import (
 	"context"
 	"errors"
+	"github.com/logocomune/echocache/store"
 	"golang.org/x/sync/singleflight"
 	"log/slog"
 	"time"
 )
 
+// NeverExpire represents a duration of 100 years, effectively used to denote a value that should never expire.
 const (
 	NeverExpire = time.Hour * 24 * 365 * 100
 )
 
-// RefreshFunc is a generic type representing a function that refreshes a value and returns it with a potential error.
-type RefreshFunc[T any] func(ctx context.Context) (T, error)
-
-// Cacher defines an interface for caching data, supporting generic types for flexibility.
-type Cacher[T any] interface {
-	Get(ctx context.Context, key string) (value T, exists bool, err error)
-	Set(ctx context.Context, key string, value T) error
-}
-
-// EchoCache is a generic caching mechanism that wraps a Cacher implementation with singleflight and a TTL configuration.
+// EchoCache is a generic caching mechanism that integrates singleflight to prevent redundant computations.
+// EchoCache uses a Cacher interface for data storage and retrieval, supporting custom refresh functions for cache misses.
+// EchoCache ensures only one computation per key occurs simultaneously to optimize concurrent operations.
 type EchoCache[T any] struct {
-	store Cacher[T]
+	store store.Cacher[T]
 	sf    singleflight.Group
 }
 
-// New creates a new instance of EchoCache with the provided Cacher and time-to-live (TTL) settings.
-func New[T any](r Cacher[T]) *EchoCache[T] {
+// NewEchoCache creates a new EchoCache instance to enable caching with optional singleflight for concurrent requests.
+func NewEchoCache[T any](cacher store.Cacher[T]) *EchoCache[T] {
 
 	return &EchoCache[T]{
-		store: r,
+		store: cacher,
 		sf:    singleflight.Group{},
 	}
 }
 
-// Memoize retrieves a value from the cache or calculates and stores it using the provided RefreshFunc if it doesn't exist.
-// Returns the value, a boolean indicating if the value was retrieved from the cache, and an error if any occurred.
-func (ec *EchoCache[T]) Memoize(ctx context.Context, key string, refreshFn RefreshFunc[T]) (T, bool, error) {
-	var emptyValue T
+// FetchWithCache retrieves a cached value by key or computes it using a given refresh function, caching the result for future use.
+// Returns the value, a boolean indicating if it was found or computed, and an error if computation or retrieval fails.
+func (ec *EchoCache[T]) FetchWithCache(ctx context.Context, key string, refreshFn store.RefreshFunc[T]) (T, bool, error) {
+	var zeroValue T
 
-	// Attempt to retrieve the value from the cache.
+	// Attempt to retrieve the resultValue from the cache.
 	value, exists, err := ec.store.Get(ctx, key)
 	if exists {
 		return value, true, nil
 	}
 	if err != nil {
 		// Log the error but proceed with computation.
-		slog.Warn("Cannot get value from cache", slog.String("error", err.Error()), slog.String("cacheKey", key))
+		slog.Warn("Cannot get resultValue from cache", slog.String("error", err.Error()), slog.String("cacheKey", key))
 	}
 
+	requestId := randString(10)
 	// Use singleflight to ensure only one computation is made per key.
-	result, errGroup, _ := ec.sf.Do(key, func() (interface{}, error) {
-		return refreshFn(ctx)
+	sfResult, sfErr, _ := ec.sf.Do(key, func() (interface{}, error) {
+		v, e := refreshFn(ctx)
+		res := singleFlightResult[T]{
+			resultValue: v,
+			createdAt:   time.Now(),
+			requestId:   requestId,
+		}
+
+		return res, e
 	})
-	if errGroup != nil {
-		return emptyValue, false, errGroup
+	if sfErr != nil {
+		return zeroValue, false, sfErr
 	}
 
-	// Validate the computed result's type.
-	computedValue, ok := result.(T)
+	// Validate the computed sfResult's type.
+	resolvedValue, ok := sfResult.(singleFlightResult[T])
 
 	if !ok {
-		return emptyValue, false, errors.New("type assertion failed for computed value")
+		return zeroValue, false, errors.New("type assertion failed for computed resultValue")
 	}
 
-	// Save the computed value in the cache.
-	if err := ec.store.Set(ctx, key, computedValue); err != nil {
-		// Log the error but still return the computed value.
-		slog.Warn("Failed to store value in cache", slog.String("key", key), slog.String("error", err.Error()))
-	}
+	if resolvedValue.requestId == requestId {
+		// Save the computed resultValue in the cache.
+		if err := ec.store.Set(ctx, key, resolvedValue.resultValue); err != nil {
+			// Log the error but still return the computed resultValue.
+			slog.Warn("Failed to store resultValue in cache", slog.String("key", key), slog.String("error", err.Error()))
+		}
 
-	return computedValue, true, nil
+	}
+	return resolvedValue.resultValue, true, nil
 }

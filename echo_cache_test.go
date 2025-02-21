@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// mockCacher is a generic struct that implements basic caching functionality for testing purposes.
+// It includes methods to get, set, and build keys, and supports injecting errors for testing scenarios.
 type mockCacher[T any] struct {
 	cache   map[string]T
 	mu      sync.Mutex
@@ -17,6 +19,7 @@ type mockCacher[T any] struct {
 	keyFunc func(string) string
 }
 
+// Get retrieves a value associated with the given key from the cache, returning whether the key exists and any error encountered.
 func (mc *mockCacher[T]) Get(ctx context.Context, key string) (value T, exists bool, err error) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -27,6 +30,7 @@ func (mc *mockCacher[T]) Get(ctx context.Context, key string) (value T, exists b
 	return v, ok, nil
 }
 
+// Set stores the given value in the cache with the specified key and returns an error if the operation fails.
 func (mc *mockCacher[T]) Set(ctx context.Context, key string, value T) error {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
@@ -37,6 +41,7 @@ func (mc *mockCacher[T]) Set(ctx context.Context, key string, value T) error {
 	return nil
 }
 
+// BuildKey generates a cache key by applying a custom key function if defined, or prepends "key:" to the rawKey otherwise.
 func (mc *mockCacher[T]) BuildKey(rawKey string) string {
 	if mc.keyFunc != nil {
 		return mc.keyFunc(rawKey)
@@ -44,42 +49,43 @@ func (mc *mockCacher[T]) BuildKey(rawKey string) string {
 	return "key:" + rawKey
 }
 
+// TestEchoCache_Memoize tests the behavior of the EchoCache implementation with various caching scenarios and edge cases.
 func TestEchoCache_Memoize(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("value_found_in_cache", func(t *testing.T) {
 		mc := &mockCacher[string]{
 			cache: map[string]string{
-				"test": "cached value",
+				"test": "cached resultValue",
 			},
 		}
-		cache := New[string](mc)
-		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
-			return "refreshed value", nil
+		cache := NewEchoCache[string](mc)
+		value, exists, err := cache.FetchWithCache(ctx, "test", func(ctx context.Context) (string, error) {
+			return "refreshed resultValue", nil
 		})
 
 		assert.NoError(t, err)
 		assert.True(t, exists)
-		assert.Equal(t, "cached value", value)
+		assert.Equal(t, "cached resultValue", value)
 	})
 
 	t.Run("value_refreshed_and_cached", func(t *testing.T) {
 		mc := &mockCacher[string]{cache: make(map[string]string)}
-		cache := New[string](mc)
-		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
-			return "refreshed value", nil
+		cache := NewEchoCache[string](mc)
+		value, exists, err := cache.FetchWithCache(ctx, "test", func(ctx context.Context) (string, error) {
+			return "refreshed resultValue", nil
 		})
 
 		assert.NoError(t, err)
 		assert.True(t, exists)
-		assert.Equal(t, "refreshed value", value)
-		assert.Equal(t, "refreshed value", mc.cache["test"])
+		assert.Equal(t, "refreshed resultValue", value)
+		assert.Equal(t, "refreshed resultValue", mc.cache["test"])
 	})
 
 	t.Run("value_refresh_fails", func(t *testing.T) {
 		mc := &mockCacher[string]{cache: make(map[string]string)}
-		cache := New[string](mc)
-		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
+		cache := NewEchoCache[string](mc)
+		value, exists, err := cache.FetchWithCache(ctx, "test", func(ctx context.Context) (string, error) {
 			return "", errors.New("refresh error")
 		})
 
@@ -93,15 +99,15 @@ func TestEchoCache_Memoize(t *testing.T) {
 			cache:  make(map[string]string),
 			getErr: errors.New("cache get error"),
 		}
-		cache := New[string](mc)
-		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
-			return "refreshed value", nil
+		cache := NewEchoCache[string](mc)
+		value, exists, err := cache.FetchWithCache(ctx, "test", func(ctx context.Context) (string, error) {
+			return "refreshed resultValue", nil
 		})
 
 		assert.NoError(t, err)
 		assert.True(t, exists)
-		assert.Equal(t, "refreshed value", value)
-		assert.Equal(t, "refreshed value", mc.cache["test"])
+		assert.Equal(t, "refreshed resultValue", value)
+		assert.Equal(t, "refreshed resultValue", mc.cache["test"])
 	})
 
 	t.Run("cache_set_fails", func(t *testing.T) {
@@ -109,14 +115,14 @@ func TestEchoCache_Memoize(t *testing.T) {
 			cache:  make(map[string]string),
 			setErr: errors.New("cache set error"),
 		}
-		cache := New[string](mc)
-		value, exists, err := cache.Memoize(ctx, "test", func(ctx context.Context) (string, error) {
-			return "refreshed value", nil
+		cache := NewEchoCache[string](mc)
+		value, exists, err := cache.FetchWithCache(ctx, "test", func(ctx context.Context) (string, error) {
+			return "refreshed resultValue", nil
 		})
 
 		assert.NoError(t, err)
 		assert.True(t, exists)
-		assert.Equal(t, "refreshed value", value)
+		assert.Equal(t, "refreshed resultValue", value)
 	})
 
 }

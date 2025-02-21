@@ -1,4 +1,4 @@
-package echocache
+package store
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestLRUCache_Get tests the behavior of the Get method in the LRU cache for various scenarios, including cache hits and misses.
 func TestLRUCache_Get(t *testing.T) {
 	cache := NewLRUCache[string](2)
 
@@ -36,9 +37,8 @@ func TestLRUCache_Get(t *testing.T) {
 		},
 	}
 
-	cache.Set(context.Background(), "key1", "value1")
-	//cache.Set(context.Background(), "key2", "value2")
-	//	cache.Set(context.Background(), "key3", "value3") // Evicts "key1" because capacity is 2
+	err := cache.Set(context.Background(), "key1", "value1")
+	assert.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -51,6 +51,7 @@ func TestLRUCache_Get(t *testing.T) {
 	}
 }
 
+// TestLRUCache_Get2 verifies the behavior of the LRU cache's Get method when attempting to retrieve an evicted key.
 func TestLRUCache_Get2(t *testing.T) {
 	cache := NewLRUCache[string](2)
 
@@ -73,9 +74,14 @@ func TestLRUCache_Get2(t *testing.T) {
 		},
 	}
 
-	cache.Set(context.Background(), "key1", "value1")
-	cache.Set(context.Background(), "key2", "value2")
-	cache.Set(context.Background(), "key3", "value3") // Evicts "key1" because capacity is 2
+	err := cache.Set(context.Background(), "key1", "value1")
+	assert.NoError(t, err)
+
+	err = cache.Set(context.Background(), "key2", "value2")
+	assert.NoError(t, err)
+
+	err = cache.Set(context.Background(), "key3", "value3") // Evicts "key1" because capacity is 2
+	assert.NoError(t, err)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,6 +94,7 @@ func TestLRUCache_Get2(t *testing.T) {
 	}
 }
 
+// TestLRUCache_Set tests the Set method of the LRU cache to verify key insertion, updates, and retrieval functionality.
 func TestLRUCache_Set(t *testing.T) {
 	cache := NewLRUCache[string](2)
 
@@ -129,12 +136,17 @@ func TestLRUCache_Set(t *testing.T) {
 	}
 }
 
+// TestNewLRUCache tests the creation and behavior of the LRU cache, including eviction and retrieval of cached entries.
 func TestNewLRUCache(t *testing.T) {
 	t.Run("default size behavior", func(t *testing.T) {
 		cache := NewLRUCache[string](2)
-		cache.Set(context.Background(), "key1", "value1")
-		cache.Set(context.Background(), "key2", "value2")
-		cache.Set(context.Background(), "key3", "value3") // Evicts "key1"
+		err := cache.Set(context.Background(), "key1", "value1")
+		assert.NoError(t, err)
+
+		err = cache.Set(context.Background(), "key2", "value2")
+		assert.NoError(t, err)
+		err = cache.Set(context.Background(), "key3", "value3") // Evicts "key1"
+		assert.NoError(t, err)
 
 		_, found, _ := cache.Get(context.Background(), "key1")
 		assert.False(t, found)

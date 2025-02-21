@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/logocomune/echocache"
+	"github.com/logocomune/echocache/store"
 	"sync"
 	"time"
 )
@@ -11,7 +12,7 @@ import (
 // simulateComputation simulates a computation that is memoized and returns the result.
 func simulateComputation(ctx context.Context, ec *echocache.EchoCache[string], key string) (string, bool, error) {
 	// Define the computation logic inside the RefreshFunc
-	return ec.Memoize(ctx, key, func(ctx context.Context) (string, error) {
+	return ec.FetchWithCache(ctx, key, func(ctx context.Context) (string, error) {
 		time.Sleep(1 * time.Second) // Simulate expensive computation
 		return "test1", nil
 	})
@@ -20,7 +21,7 @@ func simulateComputation(ctx context.Context, ec *echocache.EchoCache[string], k
 // main demonstrates usage of EchoCache with concurrent memoization.
 func main() {
 	// Create a new cache instance with an LRU cache of size 2
-	cache := echocache.New(echocache.NewLRUCache[string](2))
+	cache := echocache.NewEchoCache[string](store.NewLRUCache[string](2))
 
 	// Single-threaded memoize usage
 	start := time.Now()
